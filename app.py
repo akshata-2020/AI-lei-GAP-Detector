@@ -10,7 +10,14 @@ app = Flask(__name__)
 app.secret_key = "secret123"
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
+
+if not OPENAI_KEY:
+    raise ValueError("OPENAI_API_KEY not found in environment")
+
+client = OpenAI(api_key=OPENAI_KEY)
+
 
 # ---------------- DATABASE ----------------
 def get_db():
@@ -185,16 +192,56 @@ def quiz():
 #         print("Quiz generation error:", e)
 #         return jsonify([])
 
+# @app.route("/generate-quiz", methods=["POST"])
+# def generate_quiz():
+#     data = request.json
+#     subject = data.get("subject")
+#     topic = data.get("topic")
+#     difficulty = data.get("difficulty")
+
+#     prompt = f"""
+# Return ONLY valid JSON.
+# Generate exactly 10 MCQs.
+
+# FORMAT:
+# [
+#   {{
+#     "question": "text",
+#     "options": ["A", "B", "C", "D"],
+#     "answer": "A"
+#   }}
+# ]
+
+# SUBJECT: {subject}
+# TOPIC: {topic}
+# DIFFICULTY: {difficulty}
+# """
+
+#     try:
+#         response = client.responses.create(
+#             model="gpt-4.1-mini",
+#             input=prompt
+#         )
+
+#         raw = response.output_text
+#         quiz = json.loads(raw)
+#         return jsonify(quiz)
+
+#     except Exception as e:
+#         print("Quiz generation error:", e)
+#         return jsonify({"error": "Quiz generation failed"}), 500
+
 @app.route("/generate-quiz", methods=["POST"])
 def generate_quiz():
-    data = request.json
-    subject = data.get("subject")
-    topic = data.get("topic")
-    difficulty = data.get("difficulty")
+    try:
+        data = request.get_json()
+        subject = data["subject"]
+        topic = data["topic"]
+        difficulty = data["difficulty"]
 
-    prompt = f"""
+        prompt = f"""
 Return ONLY valid JSON.
-Generate exactly 10 MCQs.
+Generate exactly 5 MCQs.
 
 FORMAT:
 [
@@ -210,18 +257,19 @@ TOPIC: {topic}
 DIFFICULTY: {difficulty}
 """
 
-    try:
         response = client.responses.create(
             model="gpt-4.1-mini",
             input=prompt
         )
 
         raw = response.output_text
+        print("RAW RESPONSE:", raw)   # 👈 VERY IMPORTANT
+
         quiz = json.loads(raw)
         return jsonify(quiz)
 
     except Exception as e:
-        print("Quiz generation error:", e)
+        print("❌ QUIZ ERROR:", str(e))   # 👈 THIS WILL SHOW REAL ERROR
         return jsonify({"error": "Quiz generation failed"}), 500
 
 
