@@ -230,18 +230,16 @@ def quiz():
 #     except Exception as e:
 #         print("Quiz generation error:", e)
 #         return jsonify({"error": "Quiz generation failed"}), 500
-
 @app.route("/generate-quiz", methods=["POST"])
 def generate_quiz():
-    try:
-        data = request.get_json()
-        subject = data["subject"]
-        topic = data["topic"]
-        difficulty = data["difficulty"]
+    data = request.json
+    subject = data.get("subject")
+    topic = data.get("topic")
+    difficulty = data.get("difficulty")
 
-        prompt = f"""
+    prompt = f"""
 Return ONLY valid JSON.
-Generate exactly 5 MCQs.
+Generate exactly 10 MCQs.
 
 FORMAT:
 [
@@ -255,22 +253,34 @@ FORMAT:
 SUBJECT: {subject}
 TOPIC: {topic}
 DIFFICULTY: {difficulty}
+
+Strictly return only the JSON array. Do NOT add any extra text.
 """
 
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            input=prompt
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
         )
 
-        raw = response.output_text
-        print("RAW RESPONSE:", raw)   # 👈 VERY IMPORTANT
+        raw = response.choices[0].message.content.strip()
+        print("🔹 RAW OPENAI TEXT:", raw)
 
-        quiz = json.loads(raw)
+        # Make sure to only keep text between first [ and last ]
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        if start == -1 or end == -1:
+            raise ValueError("No JSON array found in response")
+
+        quiz = json.loads(raw[start:end])
         return jsonify(quiz)
 
     except Exception as e:
-        print("❌ QUIZ ERROR:", str(e))   # 👈 THIS WILL SHOW REAL ERROR
+        print("❌ QUIZ ERROR:", e)
         return jsonify({"error": "Quiz generation failed"}), 500
+
+
 
 
 # ---------------- SAVE QUIZ RESULT ----------------
@@ -313,6 +323,27 @@ def practice_data(subject):
     return jsonify([dict(r) for r in rows])
 
 # ---------------- WEAKNESS ANALYSIS ----------------
+# @app.route("/weakness-data/<subject>")
+# def weakness_data(subject):
+#     conn = get_db()
+#     c = conn.cursor()
+#     c.execute("""
+#         SELECT topic,
+#                SUM(score) AS obtained,
+#                SUM(total) AS total
+#         FROM quiz_results
+#         WHERE subject=?
+#         GROUP BY topic
+#     """, (subject,))
+#     rows = c.fetchall()
+#     conn.close()
+
+#     result = {}
+#     for r in rows:
+#         percent = (r["obtained"] / r["total"]) * 100
+#         result[r["topic"]] = round(100 - percent)
+
+#     return jsonify(result)
 @app.route("/weakness-data/<subject>")
 def weakness_data(subject):
     conn = get_db()
@@ -330,9 +361,13 @@ def weakness_data(subject):
 
     result = {}
     for r in rows:
-        percent = (r["obtained"] / r["total"]) * 100
+        if r["total"] == 0 or r["total"] is None:
+            percent = 0
+        else:
+            percent = (r["obtained"] / r["total"]) * 100
         result[r["topic"]] = round(100 - percent)
 
+    print("🔹 Weakness Data:", result)  # Debug log
     return jsonify(result)
 
 # ---------------- AI FEEDBACK ----------------
