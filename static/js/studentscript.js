@@ -162,15 +162,24 @@ document.getElementById('studyForm').addEventListener('submit', function (e) {
     this.reset();
 });
 
-// ==============================
-// INIT
-// ==============================
-updateSubjectData();
 
-// Initial load when page is ready
-document.addEventListener("DOMContentLoaded", () => {
-    const subjectSelect = document.getElementById("subjectSelect");
-    if (subjectSelect && typeof updatePractice === "function") {
-        updatePractice(subjectSelect.value);
+
+// ✅ Auto-update ALL analytics when user comes back to dashboard
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        const subjectSelect = document.getElementById("subjectSelect");
+        if (!subjectSelect) return;
+
+        const subject = subjectSelect.value;
+
+        if (typeof updatePractice === "function") {
+            updatePractice(subject);
+        }
+        if (typeof updateWeakness === "function") {
+            updateWeakness(subject);
+        }
+        if (typeof updateFeedback === "function") {
+            updateFeedback(subject);
+        }
     }
 });
