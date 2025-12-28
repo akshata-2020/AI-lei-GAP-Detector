@@ -238,48 +238,50 @@ def generate_quiz():
     difficulty = data.get("difficulty")
 
     prompt = f"""
-Return ONLY valid JSON.
-Generate exactly 10 MCQs.
+You are a quiz generator.
 
-FORMAT:
+Generate EXACTLY 10 multiple choice questions.
+
+Return ONLY valid JSON in this format:
 [
   {{
-    "question": "text",
+    "question": "string",
     "options": ["A", "B", "C", "D"],
     "answer": "A"
   }}
 ]
 
-SUBJECT: {subject}
-TOPIC: {topic}
-DIFFICULTY: {difficulty}
+Subject: {subject}
+Topic: {topic}
+Difficulty: {difficulty}
 
-Strictly return only the JSON array. Do NOT add any extra text.
+Rules:
+- No explanations
+- No markdown
+- No extra text
+- JSON only
 """
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=prompt,
             temperature=0
         )
 
-        raw = response.choices[0].message.content.strip()
-        print("🔹 RAW OPENAI TEXT:", raw)
+        raw = response.output_text.strip()
+        print("🔹 RAW RESPONSE:", raw)
 
-        # Make sure to only keep text between first [ and last ]
-        start = raw.find("[")
-        end = raw.rfind("]") + 1
-        if start == -1 or end == -1:
-            raise ValueError("No JSON array found in response")
+        quiz = json.loads(raw)
 
-        quiz = json.loads(raw[start:end])
+        if not isinstance(quiz, list) or len(quiz) != 10:
+            raise ValueError("Invalid quiz format")
+
         return jsonify(quiz)
 
     except Exception as e:
         print("❌ QUIZ ERROR:", e)
         return jsonify({"error": "Quiz generation failed"}), 500
-
 
 
 
